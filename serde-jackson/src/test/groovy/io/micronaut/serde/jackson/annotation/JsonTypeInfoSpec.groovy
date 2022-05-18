@@ -522,4 +522,59 @@ class Cat extends Animal {
         cleanup:
         context.close()
     }
+
+    void "test existence of protected field of abstract parent"() {
+        given:
+        def context = buildContext("""
+package subtypes;
+
+import com.fasterxml.jackson.annotation.*;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.serde.annotation.Serdeable;
+
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME, 
+  include = JsonTypeInfo.As.PROPERTY, 
+  property = "type")
+abstract class Animal {
+    protected String name;
+}
+
+@JsonTypeName("dog")
+class Dog extends Animal {
+    public final double barkVolume;
+    public Animal friend;
+    Dog(String name, double barkVolume, Animal friend) {
+        this.name = name;
+        this.barkVolume = barkVolume;
+        this.friend = friend;
+    }
+}
+
+@JsonTypeName("cat")
+class Cat extends Animal {
+    public boolean likesCream;
+    final public int lives;
+    Cat(String name, int lives) {
+        this.name = name;
+        this.lives = lives;
+    }
+}
+""")
+
+        when:
+        def cat = newInstance(context, 'subtypes.Cat', "Joe", 9)
+        def dog = newInstance(context, 'subtypes.Dog', "Fred", 1.1d, cat)
+        def dogJson = writeJson(jsonMapper, dog)
+        def catJson = writeJson(jsonMapper, cat)
+
+        then:
+        cat.name == "Joe" //just to be sure that it is set
+        dog.name == "Fred"  //just to be sure that it is set
+        dogJson == '{"type":"dog","barkVolume":1.1,"friend":{"type":"cat","likesCream":false,"lives":9,"name":"Joe"},"name":"Fred"}'
+        catJson == '{"type":"cat","likesCream":false,"lives":9,"name":"Joe"}'
+
+        cleanup:
+        context.close()
+    }
 }
